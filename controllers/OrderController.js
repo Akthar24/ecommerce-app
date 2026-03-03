@@ -1,24 +1,34 @@
-const Product = require('../models/Product');
-const Order = require('../models/Order');
+```javascript
+const OrderService = require('../services/OrderService');
+const ProductService = require('../services/ProductService');
 
 exports.createOrder = async (req, res) => {
-    try {
-        const { items } = req.body;
-        if (!Array.isArray(items) || items.length === 0) {
-            return res.status(400).json({ error: 'No items provided' });
-        }
+  try {
+    const { userId, items } = req.body; // items: [{productId, quantity}]
+    let totalAmount = 0;
+    const orderItems = [];
 
-        let totalAmount = 0;
-        for (const item of items) {
-            const product = await Product.findById(item.productId);
-            if (!product) { continue; }
-            totalAmount += product.price * item.quantity;
-        }
+    for (const item of items) {
+      const product = await ProductService.getProductById(item.productId);
 
-        const order = new Order({ items, totalAmount });
-        await order.save();
-        res.status(201).json(order);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+      if (!product) {
+        console.warn(`Product with id ${item.productId} not found. Skipping item.`);
+        continue;
+      }
+
+      totalAmount += product.price * item.quantity;
+      orderItems.push({
+        productId: product.id,
+        quantity: item.quantity,
+        price: product.price,
+      });
     }
+
+    const order = await OrderService.createOrder(userId, orderItems, totalAmount);
+    res.status(201).json(order);
+  } catch (error) {
+    console.error('Error creating order:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
 };
+```
